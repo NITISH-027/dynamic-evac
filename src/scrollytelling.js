@@ -5,6 +5,7 @@
  * 2. Virtual Dampening (Lerp / Smooth Scrub with LERP_FACTOR = 0.09)
  * 3. Lenis Smooth Scroll Integration (for notched mouse wheels on Windows/Webkit)
  * 4. Smooth Subtitle Opacity Fade (zero pops, analog crossfade)
+ * 5. Proximity Priority Preloading & Dynamic Fallback Replacement (instant Act 3 frame paint)
  */
 import Lenis from 'lenis';
 
@@ -19,6 +20,7 @@ export class ScrollytellingEngine {
     this.images = images;
     this.totalFrames = images.length;
     this.onFrameChange = options.onFrameChange || (() => {});
+    this.loader = options.loader || null;
 
     // Calibration: ~20px per frame gives ~4.5s deliberate scrub across 227 frames
     this.PIXELS_PER_FRAME = 20;
@@ -28,6 +30,8 @@ export class ScrollytellingEngine {
     this.targetFrame = 0;
     this.currentFrame = 0;
     this.lastRenderedFrame = -1;
+    this.renderedImageIndex = -1;
+    this.isDisplayingFallback = false;
     this.LERP_FACTOR = 0.09; // Ideal cinematic inertia without lag
 
     this.isPlaying = false;
@@ -130,11 +134,13 @@ export class ScrollytellingEngine {
     const progress = Math.max(0, Math.min(1, rawProgress));
 
     this.targetFrame = progress * (this.totalFrames - 1);
+    this.loader?.setPriorityIndex(this.targetFrame);
   }
 
   seekToFrame(frameIndex, syncScroll = false) {
     this.targetFrame = Math.max(0, Math.min(this.totalFrames - 1, frameIndex));
     this.currentFrame = this.targetFrame;
+    this.loader?.setPriorityIndex(this.targetFrame);
 
     if (syncScroll && this.lenis) {
       const progress = this.targetFrame / (this.totalFrames - 1);
@@ -147,6 +153,20 @@ export class ScrollytellingEngine {
     this.playSpeed = speed;
     this.isPlaying = !this.isPlaying;
     return this.isPlaying;
+  }
+
+  /**
+   * Called whenever a background frame finishes downloading
+   * If currently showing a fallback frame, immediately upgrade to the real frame!
+   */
+  onFrameLoaded(loadedIndex) {
+    const currentTarget = Math.round(this.currentFrame);
+    if (
+      loadedIndex === currentTarget ||
+      (this.isDisplayingFallback && Math.abs(loadedIndex - currentTarget) < Math.abs(this.renderedImageIndex - currentTarget))
+    ) {
+      this.drawCover(currentTarget);
+    }
   }
 
   /**
@@ -168,6 +188,7 @@ export class ScrollytellingEngine {
         const progress = this.targetFrame / (this.totalFrames - 1);
         const targetScrollY = this.container.offsetTop + progress * this.scrollDistance;
         this.lenis?.scrollTo(targetScrollY, { immediate: true });
+        this.loader?.setPriorityIndex(this.targetFrame);
       }
 
       const diff = this.targetFrame - this.currentFrame;
@@ -181,7 +202,7 @@ export class ScrollytellingEngine {
           Math.max(0, Math.round(this.currentFrame))
         );
 
-        if (frameIndex !== this.lastRenderedFrame) {
+        if (frameIndex !== this.lastRenderedFrame || this.isDisplayingFallback) {
           this.drawCover(frameIndex);
           this.lastRenderedFrame = frameIndex;
           this.onFrameChange(frameIndex);
@@ -196,7 +217,7 @@ export class ScrollytellingEngine {
           this.totalFrames - 1,
           Math.max(0, Math.round(this.currentFrame))
         );
-        if (frameIndex !== this.lastRenderedFrame) {
+        if (frameIndex !== this.lastRenderedFrame || this.isDisplayingFallback) {
           this.drawCover(frameIndex);
           this.lastRenderedFrame = frameIndex;
           this.onFrameChange(frameIndex);
@@ -212,13 +233,15 @@ export class ScrollytellingEngine {
 
   drawCover(frameIndex) {
     let img = this.images[frameIndex];
+    let actualIndex = frameIndex;
 
-    // Smart Frame Fallback (Zero Blank Canvas)
+    // Smart Proximity Fallback (Zero Blank Canvas)
     if (!img || !img.complete || img.naturalWidth === 0) {
       // 1. Search backwards for nearest loaded frame
       for (let i = frameIndex - 1; i >= 0; i--) {
         if (this.images[i]?.complete && this.images[i].naturalWidth > 0) {
           img = this.images[i];
+          actualIndex = i;
           break;
         }
       }
@@ -228,6 +251,7 @@ export class ScrollytellingEngine {
         for (let i = frameIndex + 1; i < this.totalFrames; i++) {
           if (this.images[i]?.complete && this.images[i].naturalWidth > 0) {
             img = this.images[i];
+            actualIndex = i;
             break;
           }
         }
@@ -236,11 +260,14 @@ export class ScrollytellingEngine {
       // 3. Ultimate fallback: last successfully rendered image or frame 0
       if (!img) {
         img = this.lastDrawnImg || this.images[0];
+        actualIndex = 0;
       }
     }
 
     if (!img || !img.complete || img.naturalWidth === 0) return;
     this.lastDrawnImg = img;
+    this.renderedImageIndex = actualIndex;
+    this.isDisplayingFallback = (actualIndex !== frameIndex);
 
     const cw = this.canvas.width;
     const ch = this.canvas.height;

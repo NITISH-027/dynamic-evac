@@ -48,7 +48,7 @@ window.addEventListener('DOMContentLoaded', () => {
   // Instantiate Progressive Frame Loader (Phase 1: 15 critical frames)
   const loader = new ProgressiveFrameLoader(FRAME_URLS, {
     criticalCount: 15,
-    concurrency: 5, // 5 parallel streams for background queue
+    concurrency: 8, // 8 parallel streams with proximity priority
     onFrameZeroLoaded: (frame0) => {
       // Immediately draw frame 0 onto canvas
       drawInitialFrame(frame0);
@@ -81,17 +81,23 @@ window.addEventListener('DOMContentLoaded', () => {
         preloaderEl?.classList.add('fade-out');
       }, 300);
 
-      // Mount Scrollytelling Engine with active streaming images array
+      // Mount Scrollytelling Engine with active streaming images array & priority loader hook
       if (!scrollytelling) {
-        scrollytelling = new ScrollytellingEngine(scrollyCanvas, scrollyContainer, images);
+        scrollytelling = new ScrollytellingEngine(scrollyCanvas, scrollyContainer, images, {
+          loader: loader
+        });
       }
+    },
+    onFrameLoaded: (index) => {
+      // Instantly upgrade any active fallback frame on canvas
+      scrollytelling?.onFrameLoaded(index);
     },
     onBackgroundProgress: (totalLoaded, total) => {
       // Background streaming status (silent & non-blocking)
       if (logStreamEl && totalLoaded === 50) {
         logStreamEl.innerHTML += '<div>> 50 FRAMES STREAMED IN BACKGROUND</div>';
-      } else if (logStreamEl && totalLoaded === 150) {
-        logStreamEl.innerHTML += '<div>> 150 FRAMES STREAMED IN BACKGROUND</div>';
+      } else if (logStreamEl && totalLoaded === 125) {
+        logStreamEl.innerHTML += '<div>> ACT 3 VECTOR LAYER STREAMED IN BACKGROUND</div>';
       } else if (logStreamEl && totalLoaded === 227) {
         logStreamEl.innerHTML += '<div>> ALL 227 CONTINUOUS FRAMES BUFFERED</div>';
       }

@@ -1,22 +1,22 @@
 /**
  * Progressive Priority Frame Loader for EVAC.OS
  *
- * Phase 1 (Critical Buffer):
- * - Loads the first 15 frames (0..14).
- * - Immediately renders frame 0 as soon as it arrives.
- * - Resolves ready promise as soon as all 15 critical frames load (~1.5s).
- *
- * Phase 2 (Background Streaming Queue):
- * - Streams frames 15 to 226 in the background using a concurrency limiter (4–6 requests).
- * - Leverages requestIdleCallback/async scheduling to prevent network/main-thread choking.
+ * Features:
+ * 1. Phase 1 (Critical Buffer): Preloads first 15 frames -> draws frame 0 immediately -> unlocks in ~1.5s.
+ * 2. Phase 2 (Proximity-Prioritized Streaming Queue):
+ *    - Dynamically prioritizes downloading frames CLOSEST to current scroll position (setPriorityIndex).
+ *    - If user scrolls to Act 3 (e.g. frame 140), it immediately prioritizes downloading Act 3 frames!
+ *    - Non-blocking asynchronous worker pool (concurrency = 8) with zero scroll freezing.
+ * 3. Instant Fallback Replacement: Fires onFrameLoaded callback so canvas refreshes immediately.
  */
 export class ProgressiveFrameLoader {
   constructor(urls, {
     criticalCount = 15,
-    concurrency = 5,
+    concurrency = 8,
     onFrameZeroLoaded,
     onCriticalProgress,
     onCriticalReady,
+    onFrameLoaded,
     onBackgroundProgress
   } = {}) {
     this.urls = urls;
@@ -25,6 +25,10 @@ export class ProgressiveFrameLoader {
     this.concurrency = concurrency;
 
     this.images = new Array(this.total).fill(null);
+    this.loadedSet = new Set();
+    this.inFlightSet = new Set();
+    this.priorityIndex = 0;
+
     this.isCriticalDone = false;
     this.criticalLoaded = 0;
     this.totalLoaded = 0;
@@ -32,39 +36,68 @@ export class ProgressiveFrameLoader {
     this.onFrameZeroLoaded = onFrameZeroLoaded || (() => {});
     this.onCriticalProgress = onCriticalProgress || (() => {});
     this.onCriticalReady = onCriticalReady || (() => {});
+    this.onFrameLoaded = onFrameLoaded || (() => {});
     this.onBackgroundProgress = onBackgroundProgress || (() => {});
+  }
 
-    this.backgroundQueue = [];
-    for (let i = this.criticalCount; i < this.total; i++) {
-      this.backgroundQueue.push(i);
+  /**
+   * Set the current scroll frame so background loader prioritizes frames nearby
+   */
+  setPriorityIndex(index) {
+    this.priorityIndex = Math.max(0, Math.min(this.total - 1, Math.round(index)));
+  }
+
+  getNextPriorityIndex() {
+    let bestIdx = -1;
+    let minDiff = Infinity;
+
+    for (let i = 0; i < this.total; i++) {
+      if (!this.loadedSet.has(i) && !this.inFlightSet.has(i)) {
+        const diff = Math.abs(i - this.priorityIndex);
+        if (diff < minDiff) {
+          minDiff = diff;
+          bestIdx = i;
+          if (minDiff === 0) break;
+        }
+      }
     }
+
+    return bestIdx;
   }
 
   loadImage(index) {
+    this.inFlightSet.add(index);
+
     return new Promise((resolve) => {
       const img = new Image();
       img.decoding = 'async';
-      img.onload = () => {
-        this.images[index] = img;
+
+      const handleSuccess = (loadedImg) => {
+        this.images[index] = loadedImg;
+        this.loadedSet.add(index);
+        this.inFlightSet.delete(index);
         this.totalLoaded++;
-        resolve(img);
+        this.onFrameLoaded(index, loadedImg);
+        resolve(loadedImg);
       };
+
+      img.onload = () => handleSuccess(img);
+
       img.onerror = () => {
         // Retry once on failure
         const retry = new Image();
-        retry.onload = () => {
-          this.images[index] = retry;
-          this.totalLoaded++;
-          resolve(retry);
-        };
+        retry.decoding = 'async';
+        retry.onload = () => handleSuccess(retry);
         retry.onerror = () => {
           console.warn(`Failed loading frame ${index}: ${this.urls[index]}`);
-          // Reuse neighbor if network failed
+          this.inFlightSet.delete(index);
+          // Neighbor fallback
           this.images[index] = this.images[Math.max(0, index - 1)] || null;
           resolve(this.images[index]);
         };
         retry.src = this.urls[index];
       };
+
       img.src = this.urls[index];
     });
   }
@@ -93,7 +126,7 @@ export class ProgressiveFrameLoader {
             resolveReady(this.images);
 
             // ----------------------------------------------------
-            // PHASE 2: Start Background Streaming Queue (15 to 226)
+            // PHASE 2: Start Proximity-Prioritized Background Queue
             // ----------------------------------------------------
             this.startBackgroundStreaming();
           }
@@ -103,26 +136,26 @@ export class ProgressiveFrameLoader {
   }
 
   startBackgroundStreaming() {
-    const runWorker = () => {
-      if (this.backgroundQueue.length === 0) return;
-      const nextIndex = this.backgroundQueue.shift();
-      this.loadImage(nextIndex).then(() => {
-        this.onBackgroundProgress(this.totalLoaded, this.total);
+    let activeWorkers = 0;
 
-        // Schedule next download without blocking user scroll interaction
-        if (typeof requestIdleCallback === 'function') {
-          requestIdleCallback(() => runWorker(), { timeout: 100 });
-        } else {
-          setTimeout(runWorker, 12);
-        }
-      });
+    const pumpWorker = () => {
+      if (this.loadedSet.size >= this.total) return;
+
+      while (activeWorkers < this.concurrency) {
+        const nextIdx = this.getNextPriorityIndex();
+        if (nextIdx === -1) break;
+
+        activeWorkers++;
+        this.loadImage(nextIdx).then(() => {
+          activeWorkers--;
+          this.onBackgroundProgress(this.totalLoaded, this.total);
+          // Yield to event loop and immediately pick next closest frame
+          setTimeout(pumpWorker, 4);
+        });
+      }
     };
 
-    // Spawn 4-6 parallel workers
-    const workersCount = Math.min(this.concurrency, this.backgroundQueue.length);
-    for (let w = 0; w < workersCount; w++) {
-      runWorker();
-    }
+    pumpWorker();
   }
 
   abortAndUnlock() {
