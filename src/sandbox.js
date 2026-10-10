@@ -256,22 +256,24 @@ export class EvacuationSandbox {
       this.mousePos.isHovering = false;
     });
 
-    // Clicking drops a Fire / Hazard Node
-    this.canvas.addEventListener('click', (e) => {
-      const { x, y } = getCanvasPos(e);
+    let lastActionTime = 0;
+    const handleHazardToggle = (x, y) => {
+      const now = Date.now();
+      if (now - lastActionTime < 280) return; // Prevent double-trigger from touch + click simulation
+      lastActionTime = now;
 
       // Check if clicking near an existing hazard to remove it
       const clickedIdx = this.hazards.findIndex(h => {
         const dx = h.x - x;
         const dy = h.y - y;
-        return Math.sqrt(dx * dx + dy * dy) < h.radius;
+        return Math.sqrt(dx * dx + dy * dy) < h.radius + 12;
       });
 
       if (clickedIdx >= 0) {
         this.hazards.splice(clickedIdx, 1);
         audioEngine.playChime(320, 0.1, 'triangle');
       } else {
-        // Add new fire
+        // Add new fire hazard
         this.hazards.push({
           x: Math.round(x),
           y: Math.round(y),
@@ -286,23 +288,18 @@ export class EvacuationSandbox {
       if (this.mode === 'dynamic') {
         audioEngine.playRerouteSuccess();
       }
+    };
+
+    // Desktop Mouse Click
+    this.canvas.addEventListener('click', (e) => {
+      const { x, y } = getCanvasPos(e);
+      handleHazardToggle(x, y);
     });
 
-    // Touch support
+    // Mobile Touch Tap with preventDefault to eliminate ghost click
     this.canvas.addEventListener('touchstart', (e) => {
       const { x, y } = getCanvasPos(e);
-      this.hazards.push({
-        x: Math.round(x),
-        y: Math.round(y),
-        radius: 46,
-        pulsePhase: Math.random() * Math.PI,
-        id: Date.now()
-      });
-      audioEngine.playHazardAlert();
-      this.recomputeFlowFields();
-      if (this.mode === 'dynamic') {
-        audioEngine.playRerouteSuccess();
-      }
+      handleHazardToggle(x, y);
     }, { passive: true });
   }
 

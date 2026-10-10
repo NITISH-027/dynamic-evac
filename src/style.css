@@ -411,6 +411,7 @@ body.cinema-mode-active .cinema-vignette {
   top: 0;
   width: 100vw;
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
   background: #070b12;
 }
@@ -1124,49 +1125,248 @@ html.lenis, html.lenis body {
 }
 
 /* ========================================================================= */
-/* RESPONSIVE BREAKPOINTS                                                    */
+/* RESPONSIVE DESIGN - MOBILE FIRST CINEMATIC EXPERIENCE                     */
 /* ========================================================================= */
+
 @media (max-width: 1024px) {
   .scoreboard-telemetry-grid {
     grid-template-columns: repeat(2, 1fr);
   }
-  .act-nav-tabs {
-    display: none; /* Keep clean on tablets/mobile */
-  }
 }
 
 @media (max-width: 768px) {
-  .hud-narrative-card {
-    left: 20px;
-    right: 20px;
-    bottom: 80px;
-    width: auto;
-    padding: 20px;
+  /* Minimal Ambient Corner Telemetry */
+  .minimal-brand-mark {
+    top: 14px;
+    left: 14px;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    opacity: 0.75;
+    background: rgba(7, 11, 18, 0.45);
+    padding: 4px 8px;
+    border-radius: 4px;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
   }
-  .floating-timeline-bar {
-    left: 16px;
-    right: 16px;
-    bottom: 16px;
-    padding: 8px 12px;
+
+  .btn-minimal-sandbox {
+    top: 12px;
+    right: 14px;
+    padding: 6px 12px;
+    font-size: 10px;
+    letter-spacing: 0.06em;
   }
-  .scrub-hint {
-    display: none;
+
+  .scroll-explore-indicator {
+    display: none; /* Hide to avoid blocking visual on small screens */
   }
-  .comparison-analysis-panel {
+
+  /* Cinema Subtitles on Mobile - Ultra-Compact & Low Profile */
+  .cinema-subtitles-layer {
+    padding: 0 14px 18px 14px;
+  }
+
+  .cinema-subtitle-card {
+    left: 14px;
+    right: 14px;
+    bottom: 18px;
+    max-width: none;
+    padding: 10px 14px;
+    background: rgba(4, 7, 12, 0.65);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-left: 2px solid #38bdf8;
+    border-radius: 4px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  }
+
+  .subtitle-eyebrow {
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    margin-bottom: 3px;
+  }
+
+  .subtitle-headline {
+    font-size: 18px;
+    line-height: 1.22;
+    margin-bottom: 4px;
+  }
+
+  .subtitle-description {
+    font-size: 12px;
+    line-height: 1.4;
+    margin-bottom: 6px;
+  }
+
+  .subtitle-telemetry {
+    font-size: 9px;
+    letter-spacing: 0.04em;
+    line-height: 1.35;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  /* Jump Prompt on Mobile */
+  .cinema-jump-prompt {
+    left: 14px;
+    right: 14px;
+    bottom: 18px;
+    align-items: stretch;
+  }
+
+  .btn-minimal-sandbox-hero {
+    width: 100%;
+    justify-content: center;
+    padding: 10px 16px;
+    font-size: 11px;
+  }
+
+  /* Preloader on Mobile */
+  .preloader-terminal-box {
+    width: 92%;
+    padding: 24px 18px;
+  }
+
+  .preloader-title {
+    font-size: 20px;
+    letter-spacing: 0.04em;
+  }
+
+  .preloader-subtitle {
+    font-size: 10px;
+    margin-bottom: 16px;
+  }
+
+  .loader-status-display {
+    font-size: 13px;
+  }
+
+  .preloader-telemetry-grid {
     grid-template-columns: 1fr;
+    gap: 6px;
+    padding: 10px;
+    font-size: 10px;
   }
+
+  /* Sandbox Section on Mobile */
+  .sandbox-section-container {
+    padding: 44px 14px 60px 14px;
+  }
+
   .sandbox-hero-header {
     flex-direction: column;
     align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 18px;
   }
+
+  .sandbox-main-title {
+    font-size: 22px;
+  }
+
+  .sandbox-subtitle {
+    font-size: 12px;
+  }
+
+  .dual-mode-toggle-box {
+    width: 100%;
+    padding: 8px 12px;
+  }
+
   .mode-switch-group {
     width: 100%;
+    flex-direction: row;
+    gap: 6px;
   }
+
   .mode-switch-btn {
     flex: 1;
     min-width: 0;
+    padding: 8px 10px;
   }
+
+  .mode-switch-btn .mode-text {
+    font-size: 11px;
+  }
+
+  .mode-switch-btn .mode-badge-sub {
+    font-size: 8px;
+  }
+
+  .sandbox-control-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding: 10px 12px;
+  }
+
+  .toolbar-left-group {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+    width: 100%;
+  }
+
+  .btn-tool-action {
+    justify-content: center;
+    padding: 8px 6px;
+    font-size: 10px;
+    min-height: 38px;
+  }
+
+  .toolbar-right-group {
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .cyber-slider {
+    width: 120px;
+  }
+
   .scoreboard-telemetry-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .scoreboard-card {
+    padding: 10px 12px;
+  }
+
+  .metric-val {
+    font-size: 18px;
+  }
+
+  .canvas-interaction-banner {
+    font-size: 11px;
+    padding: 8px 10px;
+  }
+
+  .canvas-wrapper-relative {
+    width: 100%;
+    aspect-ratio: 1100 / 700;
+  }
+
+  .canvas-legend-bar {
+    gap: 10px;
+    font-size: 9px;
+    padding: 8px 10px;
+  }
+
+  .comparison-analysis-panel {
     grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .analysis-column {
+    padding: 14px 16px;
+  }
+
+  .app-footer {
+    flex-direction: column;
+    text-align: center;
+    gap: 8px;
+    padding: 20px 16px;
+    font-size: 10px;
   }
 }
