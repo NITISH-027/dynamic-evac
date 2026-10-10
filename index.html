@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DYNAMIC EVACUATION // Adaptive Emergency Pathfinding Engine</title>
+  <meta name="description" content="Cinematic scrollytelling and live interactive sandbox comparing static 2019 evacuation plans against real-time AI vector field emergency rerouting.">
+  
+  <!-- Modern Technical Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="./src/style.css">
+</head>
+<body class="theme-carbon">
+
+  <!-- ========================================================================= -->
+  <!-- 0. SLEEK CYBER PRELOADER -->
+  <!-- ========================================================================= -->
+  <div id="cyber-preloader" class="cyber-preloader-overlay">
+    <div class="preloader-backdrop"></div>
+    <div class="preloader-terminal-box">
+      <!-- Radar Crosshairs -->
+      <div class="radar-scan-ring">
+        <div class="radar-sweep"></div>
+        <div class="radar-core-blip"></div>
+      </div>
+
+      <div class="preloader-header">
+        <span class="sys-tag">// SYSTEM INITIALIZATION</span>
+        <span class="sys-version">BUILD 2026.04-EVAC</span>
+      </div>
+
+      <h1 class="preloader-title">DYNAMIC EVACUATION</h1>
+      <p class="preloader-subtitle">ADAPTIVE EMERGENCY PATHFINDING ENGINE</p>
+
+      <!-- Main Status Line Requested -->
+      <div class="loader-status-display" id="loader-status-text">
+        [INITIALIZING EVAC SIMULATION... 0%]
+      </div>
+
+      <!-- Cyber Progress Bar -->
+      <div class="cyber-bar-track">
+        <div class="cyber-bar-fill" id="loader-bar-fill"></div>
+        <div class="cyber-bar-glow"></div>
+      </div>
+
+      <!-- Technical Telemetry Details -->
+      <div class="preloader-telemetry-grid">
+        <div class="telemetry-cell">
+          <span class="label">FRAMES BUFFER:</span>
+          <span class="value" id="loader-frame-count">000 / 227</span>
+        </div>
+        <div class="telemetry-cell">
+          <span class="label">MEMORY ALLOC:</span>
+          <span class="value" id="loader-mem-size">104.2 MB CACHE</span>
+        </div>
+        <div class="telemetry-cell">
+          <span class="label">ARRAY SEQ:</span>
+          <span class="value">ACT1 [0..82] + ACT2 [83..226]</span>
+        </div>
+        <div class="telemetry-cell">
+          <span class="label">RENDER PIPELINE:</span>
+          <span class="value">HTML5 2D HARDWARE-ACCEL</span>
+        </div>
+      </div>
+
+      <!-- Log Terminal Snippet -->
+      <div class="terminal-log-output" id="loader-log-stream">
+        <div>> MOUNTING GPU TEXTURE ARRAY...</div>
+        <div>> PARSING BLUEPRINT MESH & VECTOR RUNTIME...</div>
+      </div>
+
+      <div class="preloader-actions">
+        <button id="btn-skip-preloader" class="btn-cyber-outline" style="display: none;">
+          BYPASS & ENTER CANVAS
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- 1. MINIMAL AMBIENT CORNER TELEMETRY (CINEMA-FIRST)                        -->
+  <!-- ========================================================================= -->
+  <div class="cinema-ambient-hud" id="cinema-hud">
+    <!-- Top Left: Minimalist Brand Mark -->
+    <div class="minimal-brand-mark">
+      <span class="brand-monomark">DYNAMIC EVACUATION // v4.2</span>
+    </div>
+
+    <!-- Top Right: Sleek Semi-Transparent Jump Button -->
+    <button id="btn-jump-sandbox" class="btn-minimal-sandbox" title="Jump straight to interactive sandbox (Key: S)">
+      <span>LIVE SIMULATION</span>
+      <span class="jump-arrow">↘</span>
+    </button>
+  </div>
+
+  <!-- Cinema Mode Toast Indicator -->
+  <div id="cinema-toast" class="cinema-mode-toast" aria-live="polite">
+    CINEMA MODE ACTIVE • PRESS [C] TO RESTORE HUD
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- 2. SCROLLYTELLING CONTAINER (ACT 1 → ACT 3) -->
+  <!-- ========================================================================= -->
+  <section id="scrolly-container" class="scrolly-scroll-track">
+    <!-- Pinned Viewport Container -->
+    <div id="scrolly-pin" class="scrolly-pinned-viewport">
+      
+      <!-- Fullscreen Hardware-Accelerated Canvas (Cover Ratio) -->
+      <canvas id="scrolly-canvas" class="fullscreen-render-canvas"></canvas>
+
+      <!-- Clean Cinematic Vignette (Subtle) -->
+      <div class="cinema-vignette"></div>
+
+      <!-- Low-Profile Glassmorphic Subtitles Layer (Bottom-Left) -->
+      <div class="cinema-subtitles-layer" id="cinema-subtitles">
+        
+        <!-- ACT 1: THE COMPLACENCY (Frames 0 to ~45) -->
+        <article id="hud-act1" class="cinema-subtitle-card active" data-act="1">
+          <div class="subtitle-eyebrow eyebrow-cyan">// ACT 01 • THE COMPLACENCY</div>
+          <h2 class="subtitle-headline">The Paper Trap</h2>
+          <p class="subtitle-description">
+            A static blueprint laminated five years ago. In routine conditions, it gives a false sense of security.
+          </p>
+          <div class="subtitle-telemetry">
+            BUILDING OCCUPANCY: <strong>420</strong> • HAZARD LEVEL: <strong class="telemetry-nominal">0.0%</strong> • ALL CORRIDORS NOMINAL
+          </div>
+        </article>
+
+        <!-- ACT 2: THE INCIDENT & THE CHOKE (Frames 46 to ~120) -->
+        <article id="hud-act2" class="cinema-subtitle-card" data-act="2">
+          <div class="subtitle-eyebrow eyebrow-red">// ACT 02 • THE INCIDENT & THE CHOKE</div>
+          <h2 class="subtitle-headline">The Old Plan is Killing Them Politely.</h2>
+          <p class="subtitle-description">
+            Central corridor blocked by thermal smoke bloom. The crowd instinctively runs toward the designated 2019 primary exit—straight into the trap. Stampede bottleneck forms at Staircase A.
+          </p>
+          <div class="subtitle-telemetry">
+            STAIRWELL A CONGESTION: <strong class="telemetry-danger">94%</strong> • EVAC DELAY: <strong class="telemetry-amber">+6m 12s</strong> • RISK: <strong class="telemetry-danger flash">CATASTROPHIC</strong>
+          </div>
+        </article>
+
+        <!-- ACT 3: THE LIVING PATH (Frames 121 to 226) -->
+        <article id="hud-act3" class="cinema-subtitle-card" data-act="3">
+          <div class="subtitle-eyebrow eyebrow-emerald">// ACT 03 • THE LIVING PATH</div>
+          <h2 class="subtitle-headline">Autonomous Reroute Engaged</h2>
+          <p class="subtitle-description">
+            Sensors isolate the fire perimeter. Real-time pathfinding draws luminous vector paths through side corridors and maintenance exits. The crowd bifurcates into smooth laminar streams.
+          </p>
+          <div class="subtitle-telemetry">
+            ACTIVE REROUTES: <strong class="telemetry-emerald">2</strong> • THROUGHPUT: <strong class="telemetry-emerald">+140%</strong> • ALL-CLEAR: <strong class="telemetry-cyan">02:41</strong>
+          </div>
+        </article>
+
+        <!-- End of Act 3 Prompt to Engage Sandbox -->
+        <div id="hud-act4-jump" class="cinema-jump-prompt">
+          <span class="jump-prompt-tag">// ALL-CLEAR VECTOR ESTABLISHED</span>
+          <button id="btn-engage-sandbox-hero" class="btn-minimal-sandbox-hero">
+            <span>ENGAGE LIVE SANDBOX</span>
+            <span>↘</span>
+          </button>
+        </div>
+
+      </div>
+
+      <!-- Bottom Right: Tiny Pulsing Scroll Cue -->
+      <div class="scroll-explore-indicator" id="scroll-explore-cue">
+        <span class="scroll-cue-text">SCROLL TO EXPLORE</span>
+        <span class="scroll-cue-arrow">↓</span>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ========================================================================= -->
+  <!-- 3. ACT 4: THE LIVE INTERACTIVE SANDBOX (Scroll Beyond Frame 226) -->
+  <!-- ========================================================================= -->
+  <section id="sandbox" class="sandbox-section-container">
+    <div class="sandbox-inner">
+
+      <!-- Sandbox Section Header -->
+      <div class="sandbox-hero-header">
+        <div class="sandbox-title-wrap">
+          <div class="section-tag-badge">ACT IV // TEST HARNESS</div>
+          <h2 class="sandbox-main-title">THE LIVE INTERACTIVE SANDBOX</h2>
+          <p class="sandbox-subtitle">
+            Judge Interaction Mode • Real-time Obstacle Avoidance & Vector Field Dynamic Rerouting Engine
+          </p>
+        </div>
+
+        <!-- Master Dual-Mode Pathfinding Toggle -->
+        <div class="dual-mode-toggle-box">
+          <span class="toggle-mode-label">PATHFINDING PROTOCOL:</span>
+          <div class="mode-switch-group" role="group" aria-label="Pathfinding mode selector">
+            <button id="btn-mode-static" class="mode-switch-btn" data-mode="static">
+              <span class="mode-icon">⏹</span>
+              <span class="mode-text">STATIC (2019 PLAN)</span>
+              <span class="mode-badge-sub">RIGID BOTTLENECK</span>
+            </button>
+            <button id="btn-mode-dynamic" class="mode-switch-btn active" data-mode="dynamic">
+              <span class="mode-icon">⚡</span>
+              <span class="mode-text">DYNAMIC AI ENGINE</span>
+              <span class="mode-badge-sub">VECTOR REROUTE</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action & Controls Bar -->
+      <div class="sandbox-control-toolbar">
+        <div class="toolbar-left-group">
+          <button id="btn-spawn-hazard" class="btn-tool-action btn-danger-action">
+            <span class="action-icon">🔥</span>
+            <span>SPAWN HAZARD AT CHOKE</span>
+          </button>
+          <button id="btn-clear-hazards" class="btn-tool-action">
+            <span class="action-icon">🧯</span>
+            <span>CLEAR ALL FIRES</span>
+          </button>
+          <button id="btn-reset-sim" class="btn-tool-action">
+            <span class="action-icon">↺</span>
+            <span>RESET OCCUPANTS</span>
+          </button>
+          <button id="btn-toggle-vectors" class="btn-tool-action active-toggle">
+            <span class="action-icon">↗</span>
+            <span id="label-toggle-vectors">VECTORS: VISIBLE</span>
+          </button>
+        </div>
+
+        <!-- Occupants Slider -->
+        <div class="toolbar-right-group">
+          <label for="occupant-slider" class="slider-control-label">
+            <span>OCCUPANTS:</span>
+            <span id="slider-occupant-val" class="slider-val">70</span>
+          </label>
+          <input type="range" id="occupant-slider" min="40" max="100" step="5" value="70" class="cyber-slider">
+        </div>
+      </div>
+
+      <!-- Live Scoreboard Telemetry HUD -->
+      <div class="scoreboard-telemetry-grid">
+        <!-- Metric 1: Evacuated Occupants -->
+        <div class="scoreboard-card card-primary">
+          <div class="card-top-row">
+            <span class="metric-title">EVACUATION PROGRESS</span>
+            <span class="metric-badge" id="sb-evac-pct">0%</span>
+          </div>
+          <div class="metric-main-stat">
+            <span class="metric-val" id="sb-evac-count">0 / 70</span>
+            <span class="metric-sub">OCCUPANTS CLEARED</span>
+          </div>
+          <div class="metric-progress-track">
+            <div class="metric-progress-fill" id="sb-evac-bar" style="width: 0%;"></div>
+          </div>
+        </div>
+
+        <!-- Metric 2: Bottleneck Delay Index -->
+        <div class="scoreboard-card">
+          <div class="card-top-row">
+            <span class="metric-title">BOTTLENECK DELAY INDEX</span>
+            <span class="info-tooltip" title="Ratio of congestion delay over baseline free-flow velocity">ℹ</span>
+          </div>
+          <div class="metric-main-stat">
+            <span class="metric-val nominal" id="sb-bottleneck-idx">1.0x</span>
+            <span class="metric-sub" id="sb-bottleneck-desc">LAMINAR STREAM</span>
+          </div>
+          <div class="bottleneck-indicator-bar">
+            <div class="indicator-marker nominal"></div>
+          </div>
+        </div>
+
+        <!-- Metric 3: Simulation Timer -->
+        <div class="scoreboard-card">
+          <div class="card-top-row">
+            <span class="metric-title">SIMULATION ELAPSED</span>
+            <span class="live-pulse-dot"></span>
+          </div>
+          <div class="metric-main-stat">
+            <span class="metric-val" id="sb-timer">00:00.0</span>
+            <span class="metric-sub">ACTIVE TIME-STEP</span>
+          </div>
+        </div>
+
+        <!-- Metric 4: Exit Status Telemetry -->
+        <div class="scoreboard-card card-exits">
+          <div class="card-top-row">
+            <span class="metric-title">EXIT PORTALS TELEMETRY</span>
+          </div>
+          <div class="exit-status-rows">
+            <div class="exit-row">
+              <span class="exit-tag tag-a">EXIT A (2019 MAIN)</span>
+              <span class="badge badge-amber" id="sb-exit-a-status">ACTIVE</span>
+            </div>
+            <div class="exit-row">
+              <span class="exit-tag tag-b">EXIT B (WEST ESCAPE)</span>
+              <span class="badge badge-cyan" id="sb-exit-b-status">PRIMARY REROUTE</span>
+            </div>
+            <div class="exit-row">
+              <span class="exit-tag tag-c">EXIT C (NORTH DOCK)</span>
+              <span class="badge badge-emerald" id="sb-exit-c-status">AUXILIARY REROUTE</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Canvas Container for Blueprint Floor Plan -->
+      <div class="blueprint-canvas-viewport">
+        <!-- Floating Canvas Crosshair Hint -->
+        <div class="canvas-interaction-banner">
+          <span class="banner-icon">🎯</span>
+          <span><strong>INTERACTION MECHANIC:</strong> Click anywhere on the floor plan to drop or remove a Hazard/Fire Node. Watch vectors dynamically adapt!</span>
+        </div>
+
+        <div class="canvas-wrapper-relative">
+          <canvas id="sandbox-canvas" class="interactive-blueprint-canvas"></canvas>
+          <div class="canvas-corner corner-tl"></div>
+          <div class="canvas-corner corner-tr"></div>
+          <div class="canvas-corner corner-bl"></div>
+          <div class="canvas-corner corner-br"></div>
+        </div>
+
+        <!-- Canvas Legend & Details -->
+        <div class="canvas-legend-bar">
+          <div class="legend-item">
+            <span class="legend-swatch swatch-emerald"></span>
+            <span>Calm / Laminar Occupant</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-swatch swatch-red"></span>
+            <span>Panicked / Bottlenecked Occupant</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-swatch swatch-fire"></span>
+            <span>Thermal Hazard Node (Clickable)</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-swatch swatch-cyan"></span>
+            <span>Dynamic Vector Streamlines</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-swatch swatch-exit"></span>
+            <span>Active Egress Portals</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Comparative Engineering Analysis Callout -->
+      <div class="comparison-analysis-panel">
+        <div class="analysis-column col-static">
+          <div class="col-header">
+            <span class="col-icon">❌</span>
+            <h3>Static 2019 Protocol Failure Mode</h3>
+          </div>
+          <ul class="analysis-points">
+            <li><strong>Single-Point Routing Failure:</strong> Hardcoded routes blind to active hazard expansion.</li>
+            <li><strong>Stampede Amplification:</strong> Crowd clusters at Staircase A choke point, causing crushing pressure.</li>
+            <li><strong>Wasted Safe Capacity:</strong> Exit B and Exit C remain 0% utilized while victims perish.</li>
+          </ul>
+        </div>
+        <div class="analysis-column col-dynamic">
+          <div class="col-header">
+            <span class="col-icon">✅</span>
+            <h3>Dynamic Evac AI Engine Solution</h3>
+          </div>
+          <ul class="analysis-points">
+            <li><strong>Sub-Millisecond Vector Field Inversion:</strong> Instantly recalculates Dijkstra potential gradients around fires.</li>
+            <li><strong>Autonomous Laminar Bifurcation:</strong> Divides crowd into smooth parallel streams across secondary exits.</li>
+            <li><strong>Throughput Maximization:</strong> Evacuation times reduced by up to 64% with zero bottleneck crush fatalities.</li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ========================================================================= -->
+  <!-- 4. FOOTER -->
+  <!-- ========================================================================= -->
+  <footer class="app-footer">
+    <div class="footer-left">
+      <span class="footer-badge">EVAC.OS // CORE ENGINE</span>
+      <span>Autonomous Emergency Pathfinding & Scrollytelling Telemetry</span>
+    </div>
+    <div class="footer-right">
+      <span>227 HIGH-PERFORMANCE SEQUENTIAL FRAMES • WEBAUDIO PROCEDURAL TELEMETRY</span>
+    </div>
+  </footer>
+
+  <!-- App Entry Script -->
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
