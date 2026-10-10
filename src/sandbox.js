@@ -290,16 +290,52 @@ export class EvacuationSandbox {
       }
     };
 
+    let lastTouchEnd = 0;
+
     // Desktop Mouse Click
     this.canvas.addEventListener('click', (e) => {
+      // Discard simulated mouse events dispatched right after touchend
+      if (Date.now() - lastTouchEnd < 450) return;
       const { x, y } = getCanvasPos(e);
       handleHazardToggle(x, y);
     });
 
-    // Mobile Touch Tap with preventDefault to eliminate ghost click
+    // Mobile Touch Gesture Handler: Differentiate intentional tap from scroll gesture
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let touchStartTime = 0;
+    let touchMoved = false;
+
     this.canvas.addEventListener('touchstart', (e) => {
-      const { x, y } = getCanvasPos(e);
-      handleHazardToggle(x, y);
+      if (e.touches && e.touches.length === 1) {
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+        touchStartTime = Date.now();
+        touchMoved = false;
+      }
+    }, { passive: true });
+
+    this.canvas.addEventListener('touchmove', (e) => {
+      if (e.touches && e.touches.length === 1) {
+        const dx = Math.abs(e.touches[0].clientX - touchStartX);
+        const dy = Math.abs(e.touches[0].clientY - touchStartY);
+        if (dx > 8 || dy > 8) {
+          touchMoved = true;
+        }
+      }
+    }, { passive: true });
+
+    this.canvas.addEventListener('touchend', (e) => {
+      lastTouchEnd = Date.now();
+      const touchDuration = lastTouchEnd - touchStartTime;
+
+      // Only toggle hazard if finger tapped intentionally without scrolling
+      if (!touchMoved && touchDuration < 320) {
+        const rect = this.canvas.getBoundingClientRect();
+        const x = ((touchStartX - rect.left) / rect.width) * this.width;
+        const y = ((touchStartY - rect.top) / rect.height) * this.height;
+        handleHazardToggle(x, y);
+      }
     }, { passive: true });
   }
 

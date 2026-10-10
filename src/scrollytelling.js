@@ -44,6 +44,23 @@ export class ScrollytellingEngine {
     this.act3Card = document.getElementById('hud-act3');
     this.actJumpPrompt = document.getElementById('hud-act4-jump');
     this.scrollExploreCue = document.getElementById('scroll-explore-cue');
+    this.actIndicator = document.getElementById('hud-act-indicator');
+    this.btnFramingToggle = document.getElementById('btn-framing-toggle');
+
+    // Mobile Responsive Framing: 'fit' ensures 100% full blueprint visibility on vertical screens
+    this.framingMode = 'fit';
+    if (this.btnFramingToggle) {
+      this.btnFramingToggle.addEventListener('click', () => {
+        this.framingMode = this.framingMode === 'fit' ? 'fill' : 'fit';
+        const label = this.btnFramingToggle.querySelector('span');
+        if (label) {
+          label.textContent = this.framingMode === 'fit' ? 'FIT 16:9' : 'FILL SCREEN';
+        }
+        if (this.lastRenderedFrame >= 0) {
+          this.drawCover(this.lastRenderedFrame);
+        }
+      });
+    }
 
     // 1. Initialize Lenis Smooth Scroll
     this.initLenis();
@@ -65,15 +82,18 @@ export class ScrollytellingEngine {
   }
 
   /**
-   * Initialize Lenis Smooth Scroll
+   * Initialize Lenis Smooth Scroll with mobile-tailored touch physics
    */
   initLenis() {
+    const isMobile = typeof window !== 'undefined' && (window.innerWidth <= 768 || window.matchMedia('(pointer: coarse)').matches);
+
     this.lenis = new Lenis({
-      duration: 1.1,
+      duration: isMobile ? 0.85 : 1.1,
       easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)), // smooth exponential deceleration
       smoothWheel: true,
       wheelMultiplier: 0.9,
-      touchMultiplier: 1.5,
+      touchMultiplier: isMobile ? 0.95 : 1.2,
+      smoothTouch: false, // Let native touch inertia handle micro-gestures smoothly
     });
 
     this.lenis.on('scroll', () => {
@@ -85,9 +105,13 @@ export class ScrollytellingEngine {
 
   /**
    * Calibrate Track Height to Frame Count
-   * With 227 frames: (227 - 1) * 20px = 4520px scroll distance + window.innerHeight
+   * With 227 frames:
+   * Desktop: (227 - 1) * 20px = ~4520px
+   * Mobile: (227 - 1) * 18px = ~4068px (balanced for standard mobile thumb swipe distance)
    */
   calibrateTrackHeight() {
+    const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
+    this.PIXELS_PER_FRAME = isMobile ? 18 : 20;
     this.scrollDistance = (this.totalFrames - 1) * this.PIXELS_PER_FRAME;
     this.container.style.height = `${this.scrollDistance + window.innerHeight}px`;
   }
@@ -274,14 +298,141 @@ export class ScrollytellingEngine {
     const iw = img.naturalWidth || 1920;
     const ih = img.naturalHeight || 1080;
 
-    // object-fit: cover aspect ratio math
-    const scale = Math.max(cw / iw, ch / ih);
-    const nw = iw * scale;
-    const nh = ih * scale;
-    const ox = (cw - nw) / 2;
-    const oy = (ch - nh) / 2;
+    const canvasAspect = cw / ch;
+    const imgAspect = iw / ih;
 
-    this.ctx.drawImage(img, ox, oy, nw, nh);
+    // Mobile / Portrait Framing Optimization:
+    // If screen is vertical (canvasAspect < 1.18) and mode is 'fit', display 100% of the blueprint
+    // so mobile visitors see all rooms, exit points, bottleneck choke, and vector reroutes!
+    if (canvasAspect < 1.18 && this.framingMode === 'fit') {
+      const nw = cw;
+      const nh = Math.round(cw / imgAspect);
+      const ox = 0;
+      // Position vertically in upper-mid viewing zone to avoid colliding with bottom subtitles
+      const oy = Math.round(Math.max(44 * this.dpr, (ch * 0.35) - (nh / 2)));
+
+      // 1. Draw subtle cyber blueprint grid on letterbox margins
+      this.drawCyberGridBackdrop(cw, ch, ox, oy, nw, nh);
+
+      // 2. Draw complete 16:9 blueprint frame
+      this.ctx.drawImage(img, ox, oy, nw, nh);
+
+      // 3. Draw high-tech cyber HUD brackets & telemetry markings
+      this.drawFrameHUD(ox, oy, nw, nh);
+    } else {
+      // Desktop / Landscape or 'fill' mode: Full viewport bleed
+      const scale = Math.max(cw / iw, ch / ih);
+      const nw = iw * scale;
+      const nh = ih * scale;
+      const ox = (cw - nw) / 2;
+      const oy = (ch - nh) / 2;
+
+      this.ctx.drawImage(img, ox, oy, nw, nh);
+    }
+  }
+
+  /**
+   * Draw high-tech HUD brackets and labels framing the 16:9 blueprint on mobile
+   */
+  drawFrameHUD(ox, oy, nw, nh) {
+    const ctx = this.ctx;
+    const dpr = this.dpr;
+
+    ctx.save();
+    // Frame boundary
+    ctx.strokeStyle = 'rgba(6, 182, 212, 0.4)';
+    ctx.lineWidth = 1 * dpr;
+    ctx.strokeRect(ox, oy, nw, nh);
+
+    // Glowing cyan corner brackets
+    const bLen = 14 * dpr;
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 2 * dpr;
+
+    // Top-Left
+    ctx.beginPath();
+    ctx.moveTo(ox, oy + bLen);
+    ctx.lineTo(ox, oy);
+    ctx.lineTo(ox + bLen, oy);
+    ctx.stroke();
+
+    // Top-Right
+    ctx.beginPath();
+    ctx.moveTo(ox + nw - bLen, oy);
+    ctx.lineTo(ox + nw, oy);
+    ctx.lineTo(ox + nw, oy + bLen);
+    ctx.stroke();
+
+    // Bottom-Left
+    ctx.beginPath();
+    ctx.moveTo(ox, oy + nh - bLen);
+    ctx.lineTo(ox, oy + nh);
+    ctx.lineTo(ox + bLen, oy + nh);
+    ctx.stroke();
+
+    // Bottom-Right
+    ctx.beginPath();
+    ctx.moveTo(ox + nw - bLen, oy + nh);
+    ctx.lineTo(ox + nw, oy + nh);
+    ctx.lineTo(ox + nw, oy + nh - bLen);
+    ctx.stroke();
+
+    // Subtle Telemetry Stamps
+    ctx.font = `600 ${9 * dpr}px 'JetBrains Mono', monospace`;
+    ctx.fillStyle = 'rgba(56, 189, 248, 0.75)';
+    ctx.fillText('CAM-01 // FULL 16:9 BLUEPRINT', ox + 8 * dpr, oy - 6 * dpr);
+
+    ctx.textAlign = 'right';
+    ctx.fillStyle = 'rgba(148, 163, 184, 0.6)';
+    ctx.fillText('ALL EXITS & FLOW VECTORS ACTIVE', ox + nw - 8 * dpr, oy - 6 * dpr);
+    ctx.textAlign = 'left';
+
+    ctx.restore();
+  }
+
+  /**
+   * Draw cybernetic grid background on mobile letterbox areas
+   */
+  drawCyberGridBackdrop(cw, ch, ox, oy, nw, nh) {
+    const ctx = this.ctx;
+    const dpr = this.dpr;
+
+    // Background fill
+    ctx.fillStyle = '#04070c';
+    ctx.fillRect(0, 0, cw, ch);
+
+    // Architectural grid pattern
+    const step = 28 * dpr;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(30, 41, 59, 0.35)';
+    ctx.lineWidth = 1 * dpr;
+
+    // Top letterbox area
+    ctx.beginPath();
+    for (let x = 0; x <= cw; x += step) {
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, oy);
+    }
+    for (let y = 0; y <= oy; y += step) {
+      ctx.moveTo(0, y);
+      ctx.lineTo(cw, y);
+    }
+    ctx.stroke();
+
+    // Bottom letterbox area
+    const bottomStart = oy + nh;
+    ctx.beginPath();
+    for (let x = 0; x <= cw; x += step) {
+      ctx.moveTo(x, bottomStart);
+      ctx.lineTo(x, ch);
+    }
+    for (let y = bottomStart; y <= ch; y += step) {
+      ctx.moveTo(0, y);
+      ctx.lineTo(cw, y);
+    }
+    ctx.stroke();
+
+    ctx.restore();
   }
 
   /**
@@ -291,6 +442,20 @@ export class ScrollytellingEngine {
    * Act 3: Fade in frame 120–130, fade out as Act 4 sandbox approaches (frame 210–226).
    */
   updateSubtitles(frame) {
+    // Update active act indicator in top HUD
+    if (this.actIndicator) {
+      if (frame < 45) {
+        this.actIndicator.textContent = 'ACT 01 // COMPLACENCY';
+        this.actIndicator.className = 'brand-act-pill pill-cyan';
+      } else if (frame < 120) {
+        this.actIndicator.textContent = 'ACT 02 // THE CHOKE';
+        this.actIndicator.className = 'brand-act-pill pill-red';
+      } else {
+        this.actIndicator.textContent = 'ACT 03 // VECTOR REROUTE';
+        this.actIndicator.className = 'brand-act-pill pill-emerald';
+      }
+    }
+
     // Act 1: [0 .. 35] solid 1.0 -> [35 .. 45] fade out to 0.0
     let op1 = 0;
     if (frame <= 35) {

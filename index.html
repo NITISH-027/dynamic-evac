@@ -84,16 +84,23 @@
   <!-- 1. MINIMAL AMBIENT CORNER TELEMETRY (CINEMA-FIRST)                        -->
   <!-- ========================================================================= -->
   <div class="cinema-ambient-hud" id="cinema-hud">
-    <!-- Top Left: Minimalist Brand Mark -->
+    <!-- Top Left: Minimalist Brand Mark & Active Act Telemetry -->
     <div class="minimal-brand-mark">
-      <span class="brand-monomark">DYNAMIC EVACUATION // v4.2</span>
+      <span class="brand-monomark">DYNAMIC EVACUATION</span>
+      <span class="brand-act-pill pill-cyan" id="hud-act-indicator">ACT 01 // COMPLACENCY</span>
     </div>
 
-    <!-- Top Right: Sleek Semi-Transparent Jump Button -->
-    <button id="btn-jump-sandbox" class="btn-minimal-sandbox" title="Jump straight to interactive sandbox (Key: S)">
-      <span>LIVE SIMULATION</span>
-      <span class="jump-arrow">↘</span>
-    </button>
+    <!-- Top Right: Mobile Framing Toggle & Live Simulation Jump Button -->
+    <div class="hud-top-actions">
+      <button id="btn-framing-toggle" class="btn-framing-toggle" title="Toggle 16:9 Blueprint Full Frame / Fullscreen Fill" aria-label="Toggle Blueprint Aspect Framing">
+        <span class="framing-icon">⛶</span>
+        <span>FIT 16:9</span>
+      </button>
+      <button id="btn-jump-sandbox" class="btn-minimal-sandbox" title="Jump straight to interactive sandbox (Key: S)">
+        <span>LIVE SIMULATION</span>
+        <span class="jump-arrow">↘</span>
+      </button>
+    </div>
   </div>
 
   <!-- Cinema Mode Toast Indicator -->
@@ -166,7 +173,8 @@
 
       <!-- Bottom Right: Tiny Pulsing Scroll Cue -->
       <div class="scroll-explore-indicator" id="scroll-explore-cue">
-        <span class="scroll-cue-text">SCROLL TO EXPLORE</span>
+        <span class="scroll-cue-text scroll-cue-desktop">SCROLL TO EXPLORE</span>
+        <span class="scroll-cue-text scroll-cue-mobile">SWIPE UP TO ADVANCE</span>
         <span class="scroll-cue-arrow">↓</span>
       </div>
 
