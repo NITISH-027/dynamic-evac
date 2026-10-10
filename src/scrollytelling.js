@@ -212,21 +212,35 @@ export class ScrollytellingEngine {
 
   drawCover(frameIndex) {
     let img = this.images[frameIndex];
+
+    // Smart Frame Fallback (Zero Blank Canvas)
     if (!img || !img.complete || img.naturalWidth === 0) {
-      // Find nearest loaded frame to prevent any white flashing
-      for (let offset = 1; offset < 20; offset++) {
-        if (this.images[frameIndex - offset]?.complete) {
-          img = this.images[frameIndex - offset];
-          break;
-        }
-        if (this.images[frameIndex + offset]?.complete) {
-          img = this.images[frameIndex + offset];
+      // 1. Search backwards for nearest loaded frame
+      for (let i = frameIndex - 1; i >= 0; i--) {
+        if (this.images[i]?.complete && this.images[i].naturalWidth > 0) {
+          img = this.images[i];
           break;
         }
       }
+
+      // 2. Search forwards if backwards search yielded nothing
+      if (!img) {
+        for (let i = frameIndex + 1; i < this.totalFrames; i++) {
+          if (this.images[i]?.complete && this.images[i].naturalWidth > 0) {
+            img = this.images[i];
+            break;
+          }
+        }
+      }
+
+      // 3. Ultimate fallback: last successfully rendered image or frame 0
+      if (!img) {
+        img = this.lastDrawnImg || this.images[0];
+      }
     }
 
-    if (!img) return;
+    if (!img || !img.complete || img.naturalWidth === 0) return;
+    this.lastDrawnImg = img;
 
     const cw = this.canvas.width;
     const ch = this.canvas.height;

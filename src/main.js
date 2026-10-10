@@ -1,14 +1,18 @@
 /**
- * EVAC.OS Main Coordinator - Cinema-First Experience
- * Integrates Preloader, Scrollytelling, Sandbox, Audio, and Cinema Hotkeys.
+ * EVAC.OS Main Coordinator - Progressive Instant Unlock
+ *
+ * Architecture:
+ * - Phase 1: Preload only first 15 frames -> render frame 0 immediately -> unlock UI in ~1.5s.
+ * - Phase 2: Stream remaining frames 15..226 in background using concurrency limiter & idle callbacks.
+ * - Lenis Smooth Scroll + Virtual Lerp Dampening (0.09) + Cinema Hotkeys.
  */
 import { FRAME_URLS } from './framesManifest.js';
-import { FramePreloader } from './preloader.js';
+import { ProgressiveFrameLoader } from './preloader.js';
 import { ScrollytellingEngine } from './scrollytelling.js';
 import { EvacuationSandbox } from './sandbox.js';
 import { audioEngine } from './audio.js';
 
-window.addEventListener('DOMContentLoaded', async () => {
+window.addEventListener('DOMContentLoaded', () => {
   const preloaderEl = document.getElementById('cyber-preloader');
   const statusTextEl = document.getElementById('loader-status-text');
   const barFillEl = document.getElementById('loader-bar-fill');
@@ -17,58 +21,90 @@ window.addEventListener('DOMContentLoaded', async () => {
   const logStreamEl = document.getElementById('loader-log-stream');
   const cinemaToastEl = document.getElementById('cinema-toast');
 
-  // Preloader instance
-  const preloader = new FramePreloader(FRAME_URLS, {
-    concurrency: 12,
-    onProgress: (pct, loaded, total) => {
+  const scrollyCanvas = document.getElementById('scrolly-canvas');
+  const scrollyContainer = document.getElementById('scrolly-container');
+  let scrollytelling = null;
+
+  // Immediate draw helper for Frame 0
+  const drawInitialFrame = (img) => {
+    if (!scrollyCanvas || !img) return;
+    const ctx = scrollyCanvas.getContext('2d');
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    scrollyCanvas.width = Math.floor(window.innerWidth * dpr);
+    scrollyCanvas.height = Math.floor(window.innerHeight * dpr);
+
+    const cw = scrollyCanvas.width;
+    const ch = scrollyCanvas.height;
+    const iw = img.naturalWidth || 1920;
+    const ih = img.naturalHeight || 1080;
+    const scale = Math.max(cw / iw, ch / ih);
+    const nw = iw * scale;
+    const nh = ih * scale;
+    const ox = (cw - nw) / 2;
+    const oy = (ch - nh) / 2;
+    ctx.drawImage(img, ox, oy, nw, nh);
+  };
+
+  // Instantiate Progressive Frame Loader (Phase 1: 15 critical frames)
+  const loader = new ProgressiveFrameLoader(FRAME_URLS, {
+    criticalCount: 15,
+    concurrency: 5, // 5 parallel streams for background queue
+    onFrameZeroLoaded: (frame0) => {
+      // Immediately draw frame 0 onto canvas
+      drawInitialFrame(frame0);
+      if (logStreamEl) {
+        logStreamEl.innerHTML += '<div>> FIRST FRAME DECODED & MOUNTED TO CANVAS</div>';
+      }
+    },
+    onCriticalProgress: (pct, loaded, total) => {
       if (statusTextEl) {
-        statusTextEl.textContent = `[INITIALIZING EVAC SIMULATION... ${pct}%]`;
+        statusTextEl.textContent = `[INITIALIZING SYSTEM... ${pct}%]`;
       }
       if (barFillEl) {
         barFillEl.style.width = `${pct}%`;
       }
       if (frameCountEl) {
-        frameCountEl.textContent = `${String(loaded).padStart(3, '0')} / ${total}`;
-      }
-
-      // Show skip button after 20% if on slow connections
-      if (pct >= 20 && btnSkipPreloader) {
-        btnSkipPreloader.style.display = 'inline-flex';
-      }
-
-      // Dynamic log lines
-      if (logStreamEl) {
-        if (pct === 30) {
-          logStreamEl.innerHTML += '<div>> BLUEPRINT LAYER VERIFIED (ACT 1: 83 FRAMES)</div>';
-        } else if (pct === 70) {
-          logStreamEl.innerHTML += '<div>> DYNAMIC REROUTE VECTORS MOUNTED (ACT 2: 144 FRAMES)</div>';
-        } else if (pct >= 99) {
-          logStreamEl.innerHTML += '<div>> ALL 227 CONTINUOUS FRAMES BUFFERED IN GPU MEMORY</div>';
-        }
+        frameCountEl.textContent = `${loaded} / ${total} BUFFER`;
       }
     },
-    onStatus: (msg) => {
-      if (statusTextEl) statusTextEl.textContent = msg;
+    onCriticalReady: (images) => {
+      // Phase 1 Complete (Instant 1.5s Unlock)
+      if (statusTextEl) {
+        statusTextEl.textContent = `[SYSTEM READY • BACKGROUND STREAMING]`;
+      }
+      if (barFillEl) {
+        barFillEl.style.width = '100%';
+      }
+
+      // Smoothly dismiss preloader
+      setTimeout(() => {
+        preloaderEl?.classList.add('fade-out');
+      }, 300);
+
+      // Mount Scrollytelling Engine with active streaming images array
+      if (!scrollytelling) {
+        scrollytelling = new ScrollytellingEngine(scrollyCanvas, scrollyContainer, images);
+      }
+    },
+    onBackgroundProgress: (totalLoaded, total) => {
+      // Background streaming status (silent & non-blocking)
+      if (logStreamEl && totalLoaded === 50) {
+        logStreamEl.innerHTML += '<div>> 50 FRAMES STREAMED IN BACKGROUND</div>';
+      } else if (logStreamEl && totalLoaded === 150) {
+        logStreamEl.innerHTML += '<div>> 150 FRAMES STREAMED IN BACKGROUND</div>';
+      } else if (logStreamEl && totalLoaded === 227) {
+        logStreamEl.innerHTML += '<div>> ALL 227 CONTINUOUS FRAMES BUFFERED</div>';
+      }
     }
   });
 
-  // Allow bypass
+  // Skip button allows immediate bypass
   btnSkipPreloader?.addEventListener('click', () => {
-    preloader.abortAndProceed();
+    loader.abortAndUnlock();
   });
 
-  // Start preloading
-  const images = await preloader.load();
-
-  // Fade out preloader
-  setTimeout(() => {
-    preloaderEl?.classList.add('fade-out');
-  }, 400);
-
-  // Initialize Scrollytelling Engine
-  const scrollyCanvas = document.getElementById('scrolly-canvas');
-  const scrollyContainer = document.getElementById('scrolly-container');
-  const scrollytelling = new ScrollytellingEngine(scrollyCanvas, scrollyContainer, images);
+  // Start Phase 1 progressive loading
+  loader.start();
 
   // Initialize ACT 4 Interactive Sandbox
   const sandboxCanvas = document.getElementById('sandbox-canvas');
@@ -76,7 +112,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   // Smooth scroll to sandbox via Lenis
   const scrollToSandbox = () => {
-    if (scrollytelling.lenis) {
+    if (scrollytelling?.lenis) {
       scrollytelling.lenis.scrollTo('#sandbox', { duration: 1.2 });
     } else {
       const sandboxEl = document.getElementById('sandbox');
@@ -166,12 +202,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     sandbox.setOccupantCount(val);
   });
 
-  // Keyboard Shortcuts:
-  // [C] or [H]: Toggle Cinema Mode (Hides all UI overlays)
-  // [S]: Jump to Live Simulation Sandbox
-  // [Space]: Toggle cinematic autoplay
-  // [M]: Toggle Static / Dynamic mode in sandbox
-  // [R]: Reset simulation occupants
+  // Keyboard Shortcuts
   window.addEventListener('keydown', (e) => {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
@@ -183,8 +214,10 @@ window.addEventListener('DOMContentLoaded', async () => {
       scrollToSandbox();
     } else if (e.code === 'Space') {
       e.preventDefault();
-      const isPlaying = scrollytelling.togglePlay(1);
-      showToast(isPlaying ? 'AUTOPLAY: ENGAGED' : 'AUTOPLAY: PAUSED');
+      if (scrollytelling) {
+        const isPlaying = scrollytelling.togglePlay(1);
+        showToast(isPlaying ? 'AUTOPLAY: ENGAGED' : 'AUTOPLAY: PAUSED');
+      }
     } else if (e.code === 'KeyM') {
       if (sandbox.mode === 'static') {
         btnModeDynamic?.click();

@@ -1,78 +1,67 @@
 /**
- * Safe high-concurrency image preloader for continuous 227-frame playback array.
+ * Progressive Priority Frame Loader for EVAC.OS
+ *
+ * Phase 1 (Critical Buffer):
+ * - Loads the first 15 frames (0..14).
+ * - Immediately renders frame 0 as soon as it arrives.
+ * - Resolves ready promise as soon as all 15 critical frames load (~1.5s).
+ *
+ * Phase 2 (Background Streaming Queue):
+ * - Streams frames 15 to 226 in the background using a concurrency limiter (4–6 requests).
+ * - Leverages requestIdleCallback/async scheduling to prevent network/main-thread choking.
  */
-export class FramePreloader {
-  constructor(urls, { onProgress, onStatus, concurrency = 12 } = {}) {
+export class ProgressiveFrameLoader {
+  constructor(urls, {
+    criticalCount = 15,
+    concurrency = 5,
+    onFrameZeroLoaded,
+    onCriticalProgress,
+    onCriticalReady,
+    onBackgroundProgress
+  } = {}) {
     this.urls = urls;
     this.total = urls.length;
-    this.onProgress = onProgress || (() => {});
-    this.onStatus = onStatus || (() => {});
+    this.criticalCount = Math.min(criticalCount, this.total);
     this.concurrency = concurrency;
-    this.loadedImages = new Array(this.total).fill(null);
-    this.loadedCount = 0;
-    this.errorCount = 0;
-    this.isAborted = false;
-  }
 
-  load() {
-    return new Promise((resolve) => {
-      let currentIndex = 0;
-      let activeJobs = 0;
-      const total = this.total;
+    this.images = new Array(this.total).fill(null);
+    this.isCriticalDone = false;
+    this.criticalLoaded = 0;
+    this.totalLoaded = 0;
 
-      const checkFinish = () => {
-        if (this.loadedCount + this.errorCount >= total || this.isAborted) {
-          this.onProgress(100, total, total);
-          this.onStatus('[SIMULATION READY - ENGAGING TELEMETRY]');
-          resolve(this.loadedImages);
-        }
-      };
+    this.onFrameZeroLoaded = onFrameZeroLoaded || (() => {});
+    this.onCriticalProgress = onCriticalProgress || (() => {});
+    this.onCriticalReady = onCriticalReady || (() => {});
+    this.onBackgroundProgress = onBackgroundProgress || (() => {});
 
-      const launchNext = () => {
-        if (this.isAborted) return;
-        while (activeJobs < this.concurrency && currentIndex < total) {
-          const index = currentIndex++;
-          activeJobs++;
-          this.loadImage(index).then(() => {
-            activeJobs--;
-            this.loadedCount++;
-            const pct = Math.floor((this.loadedCount / total) * 100);
-            this.onProgress(pct, this.loadedCount, total);
-            checkFinish();
-            launchNext();
-          }).catch(() => {
-            activeJobs--;
-            this.errorCount++;
-            checkFinish();
-            launchNext();
-          });
-        }
-      };
-
-      launchNext();
-    });
+    this.backgroundQueue = [];
+    for (let i = this.criticalCount; i < this.total; i++) {
+      this.backgroundQueue.push(i);
+    }
   }
 
   loadImage(index) {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       const img = new Image();
       img.decoding = 'async';
       img.onload = () => {
-        this.loadedImages[index] = img;
+        this.images[index] = img;
+        this.totalLoaded++;
         resolve(img);
       };
       img.onerror = () => {
-        // Retry once
+        // Retry once on failure
         const retry = new Image();
         retry.onload = () => {
-          this.loadedImages[index] = retry;
+          this.images[index] = retry;
+          this.totalLoaded++;
           resolve(retry);
         };
         retry.onerror = () => {
-          console.warn(`Failed to load frame ${index}: ${this.urls[index]}`);
-          // Provide placeholder or mirror neighbor if available
-          this.loadedImages[index] = this.loadedImages[Math.max(0, index - 1)] || null;
-          reject(new Error(`Failed ${index}`));
+          console.warn(`Failed loading frame ${index}: ${this.urls[index]}`);
+          // Reuse neighbor if network failed
+          this.images[index] = this.images[Math.max(0, index - 1)] || null;
+          resolve(this.images[index]);
         };
         retry.src = this.urls[index];
       };
@@ -80,7 +69,67 @@ export class FramePreloader {
     });
   }
 
-  abortAndProceed() {
-    this.isAborted = true;
+  start() {
+    return new Promise((resolveReady) => {
+      // ----------------------------------------------------
+      // PHASE 1: Load Critical Buffer (Frames 0 to 14)
+      // ----------------------------------------------------
+      let criticalRemaining = this.criticalCount;
+
+      for (let i = 0; i < this.criticalCount; i++) {
+        this.loadImage(i).then((img) => {
+          if (i === 0 && img) {
+            this.onFrameZeroLoaded(img);
+          }
+
+          this.criticalLoaded++;
+          const pct = Math.floor((this.criticalLoaded / this.criticalCount) * 100);
+          this.onCriticalProgress(pct, this.criticalLoaded, this.criticalCount);
+
+          criticalRemaining--;
+          if (criticalRemaining === 0 && !this.isCriticalDone) {
+            this.isCriticalDone = true;
+            this.onCriticalReady(this.images);
+            resolveReady(this.images);
+
+            // ----------------------------------------------------
+            // PHASE 2: Start Background Streaming Queue (15 to 226)
+            // ----------------------------------------------------
+            this.startBackgroundStreaming();
+          }
+        });
+      }
+    });
+  }
+
+  startBackgroundStreaming() {
+    const runWorker = () => {
+      if (this.backgroundQueue.length === 0) return;
+      const nextIndex = this.backgroundQueue.shift();
+      this.loadImage(nextIndex).then(() => {
+        this.onBackgroundProgress(this.totalLoaded, this.total);
+
+        // Schedule next download without blocking user scroll interaction
+        if (typeof requestIdleCallback === 'function') {
+          requestIdleCallback(() => runWorker(), { timeout: 100 });
+        } else {
+          setTimeout(runWorker, 12);
+        }
+      });
+    };
+
+    // Spawn 4-6 parallel workers
+    const workersCount = Math.min(this.concurrency, this.backgroundQueue.length);
+    for (let w = 0; w < workersCount; w++) {
+      runWorker();
+    }
+  }
+
+  abortAndUnlock() {
+    if (!this.isCriticalDone) {
+      this.isCriticalDone = true;
+      this.onCriticalReady(this.images);
+      this.startBackgroundStreaming();
+    }
   }
 }
